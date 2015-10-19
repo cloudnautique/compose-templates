@@ -1,0 +1,11 @@
+jenkins-primary:
+  image: "jenkins:1.625.1"
+  ports:
+    - "8080:8080"
+  labels:
+    io.rancher.sidekicks: jenkins-plugins
+  volumes_from:
+    - jenkins-plugins
+  entrypoint: /usr/share/jenkins/rancher/jenkins.sh
+jenkins-plugins:
+  image: cloudnautique/jenkins_plugins
