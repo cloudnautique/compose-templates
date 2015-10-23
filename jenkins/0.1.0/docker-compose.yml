@@ -3,9 +3,41 @@ jenkins-primary:
   ports:
     - "8080:8080"
   labels:
-    io.rancher.sidekicks: jenkins-plugins
+    io.rancher.sidekicks: jenkins-plugins,jenkins-datavolume
+    io.rancher.container.hostname_override: container_name
+  environment:
+    SWARM_VERSION: "2.0"
   volumes_from:
     - jenkins-plugins
+    - jenkins-datavolume
   entrypoint: /usr/share/jenkins/rancher/jenkins.sh
 jenkins-plugins:
   image: cloudnautique/jenkins_plugins
+jenkins-datavolume:
+  image: "jenkins:1.625.1"
+  labels:
+    io.rancher.container.start_once: true
+  entrypoint: /bin/true
+
+
+
+jenkins-swarm-slave:
+  image: "jenkins:1.625.1"
+  entrypoint: /jenkins/swarm/run.sh
+  labels:
+    io.rancher.sidekicks: jenkins-swarm-config
+    io.rancher.container.hostname_override: container_name
+  environment:
+    SWARM_VERSION: "2.0"
+  volumes_from:
+    - jenkins-swarm-config
+  volumes:
+    - /var/run/docker.sock:/var/run/docker.sock
+    - /usr/bin/docker:/usr/bin/docker
+  links:
+    - jenkins-primary:jenkins-primary
+jenkins-swarm-config:
+  image: rancher/swarm-client:2.0
+  labels:
+    io.rancher.container.start_once: true
+  command: /bin/sleep 1
