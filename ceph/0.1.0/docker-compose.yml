@@ -1,0 +1,137 @@
+ceph-monitors-daemon:
+  image: ceph/mon
+  net: "container:ceph-monitors"
+  entrypoint: /opt/rancher/run.sh
+  command: daemon
+  volumes_from:
+   - ceph-monitors
+ceph-monitors:
+  image: rancher/mon-init:v0.1.0
+  labels:
+    io.rancher.sidekicks: ceph-monitors-daemon,ceph-bootstrap
+    io.rancher.container.hostname_override: container_name
+  interactive: true
+  tty: true
+  volumes:
+    - /etc/ceph
+  command: /bin/bash
+  external_links:
+    - etcd/etcd-init:etcd
+ceph-bootstrap:
+  image: ceph/config
+  net: "container:ceph-monitors"
+  entrypoint: /opt/rancher/run.sh
+  labels:
+    io.rancher.container.start_once: true
+  volumes_from:
+   - ceph-monitors
+  environment:
+    ETCDCTL_PEERS: "http://etcd:4001"
+    CLUSTER: ceph
+
+ceph-osd-daemons:
+  image: ceph/osd
+  net: "container:ceph-osds"
+  entrypoint: /opt/rancher/run.sh
+  command: /sbin/my_init
+  volumes_from:
+    - ceph-osds
+ceph-osds:
+  image: rancher/ceph-bootstrap:v0.1.0
+  labels:
+    io.rancher.sidekicks: ceph-osd-bootstrap,ceph-osd-daemons
+    io.rancher.container.hostname_override: container_name
+  links:
+    - ceph-monitors:monitors
+  external_links:
+    - etcd/etcd-init:etcd
+  volumes:
+    - /etc/ceph
+    - /var/lib/ceph/osd/ceph-0
+  tty: true
+  interactive: true
+  command: /bin/bash
+ceph-osd-bootstrap:
+  image: ceph/config
+  net: "container:ceph-osds"
+  entrypoint: /opt/rancher/run.sh
+  command: /entrypoint.sh
+  labels:
+    io.rancher.container.start_once: true
+  environment:
+    ETCDCTL_PEERS: "http://etcd:4001"
+    CLUSTER: ceph
+  volumes_from:
+    - ceph-osds
+
+ceph-mds:
+  image: rancher/ceph-bootstrap:v0.1.0
+  labels:
+    io.rancher.sidekicks: ceph-mds-bootstrap,ceph-mds-daemons
+    io.rancher.container.hostname_override: container_name
+  links:
+    - ceph-monitors:monitors
+  external_links:
+    - etcd/etcd-init:etcd
+  volumes:
+    - /etc/ceph
+  tty: true
+  interactive: true
+  command: /bin/bash
+ceph-mds-bootstrap:
+  image: ceph/config
+  net: "container:ceph-mds"
+  entrypoint: /opt/rancher/run.sh
+  command: /entrypoint.sh
+  labels:
+    io.rancher.container.start_once: true
+  environment:
+    ETCDCTL_PEERS: "http://etcd:4001"
+    CLUSTER: ceph
+  volumes_from:
+    - ceph-mds
+ceph-mds-daemons:
+  image: ceph/mds
+  net: "container:ceph-mds"
+  entrypoint: /opt/rancher/run.sh
+  command: /entrypoint.sh
+  environment:
+    CEPHFS_CREATE: 1
+  volumes_from:
+   - ceph-mds
+
+ceph-rgw:
+  image: rancher/ceph-bootstrap:v0.1.0
+  links:
+    - ceph-monitors:monitors
+  labels:
+    io.rancher.sidekicks: ceph-rgw-bootstrap,ceph-rgw-daemons
+    io.rancher.container.hostname_override: container_name
+  external_links:
+    - etcd/etcd-init:etcd
+  volumes:
+    - /etc/ceph
+  ports:
+    - "80:80"
+  tty: true
+  interactive: true
+  command: /bin/bash
+ceph-rgw-bootstrap:
+  image: ceph/config
+  net: "container:ceph-rgw"
+  entrypoint: /opt/rancher/run.sh
+  command: /entrypoint.sh
+  labels:
+    io.rancher.container.start_once: true
+  environment:
+    ETCDCTL_PEERS: "http://etcd:4001"
+    CLUSTER: ceph
+  volumes_from:
+    - ceph-rgw
+ceph-rgw-daemons:
+  image: ceph/radosgw
+  net: "container:ceph-rgw"
+  entrypoint: /opt/rancher/run.sh
+  command: /entrypoint.sh
+  volumes_from:
+   - ceph-rgw
